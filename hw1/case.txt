@@ -1,5 +1,3 @@
-#ifndef RESPONSE
-#define RESPONSE
 #define RPL_LISTSTART 321
 #define RPL_LIST 322
 #define RPL_LISTEND 323
@@ -27,4 +25,3 @@
 #define RPL_WELCOME 001
 #define RPL_LUSERCLIENT 251
 #define RPL_NOUSERS 395
-#endif

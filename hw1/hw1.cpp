@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdarg.h>
 #include <strings.h> 	// bzero()
 #include <unistd.h> 	// read(), write(), close()
 #include <arpa/inet.h> 	// inet_addr()
@@ -31,7 +32,7 @@ struct usersInfo{
 	string hostname;
 	string servername;
 	string realname;
-	string channel;
+	bool registed = false;
 	bool nick = false;
 	bool user = false;
 	string cmd;
@@ -39,7 +40,7 @@ struct usersInfo{
 
 struct channelInfo{
 	string topic;
-	vector<string> users;
+	set<string> users;
 };
 
 int numUsers = 0;
@@ -74,86 +75,278 @@ void splitArgument(vector<string> &dst, string &src){
 	} 
 }
 
-void print(int i, int code, string src){
-	string out = ":mircd " + to_string(code) + " " + src + "\r\n";
+void print(int i, string out){
 	send(client[i], out.c_str(), out.size(), MSG_NOSIGNAL);
 }
 
-void broadcast(int i, int code, string& src){
-	for(auto userInfo : usersData){
-		if(userInfo.f == i) continue;
-		print(client[userInfo.f], code, src);
+void response(int i, int code, vector<string> args){
+	string prefix;
+	if(code == 1){
+		prefix = ":mircd 001 ";
+	}else{
+		prefix = ":mircd " + to_string(code) + " ";
 	}
-}
-
-void response(int i, int code){
-	
+	string suffix = "\r\n";
+	string nickname = usersData[i].nickname + " ";
+	switch(code){
+        case RPL_LISTSTART:{
+			print(i, prefix + nickname + "Channel :Users Name" + suffix);
+            break;
+        }
+        case RPL_LIST:{
+			print(i, prefix + nickname + args[0] + " " + to_string(channelData[args[0]].users.size()) + " :" + channelData[args[0]].topic + suffix);
+            break;
+        }
+        case RPL_LISTEND:{
+			print(i, prefix + nickname + ":End of /LIST" + suffix);
+            break;
+        }
+        case RPL_NOTOPIC:{
+			print(i, prefix + nickname + args[0] + " :No topic is set" + suffix);
+            break;
+        }
+        case RPL_TOPIC:{
+			print(i, prefix + nickname + args[0] + " :" + args[1] + suffix);
+            break;
+        }
+        case RPL_NAMREPLY:{
+			string users = "";
+			for(auto user : channelData[args[0]].users){
+				users += user + " ";
+			}
+			print(i, prefix + nickname + args[0] + " :" + users + suffix);
+            break;
+        }
+        case RPL_ENDOFNAMES:{
+			print(i, prefix + nickname + args[0] + " :End of /NAMES list" + suffix);
+            break;
+        }
+        case RPL_MOTD:{
+			print(i, prefix + nickname + ":-  Hello, World!" + suffix);
+			print(i, prefix + nickname + ":-               @                    _ " + suffix);
+			print(i, prefix + nickname + ":-   ____  ___   _   _ _   ____.     | |" + suffix);
+			print(i, prefix + nickname + ":-  /  _ `'_  \\ | | | '_/ /  __|  ___| |" + suffix);
+			print(i, prefix + nickname + ":-  | | | | | | | | | |   | |    /  _  |" + suffix);
+			print(i, prefix + nickname + ":-  | | | | | | | | | |   | |__  | |_| |" + suffix);
+			print(i, prefix + nickname + ":-  |_| |_| |_| |_| |_|   \\____| \\___,_|" + suffix);
+			print(i, prefix + nickname + ":-  minimized internet relay chat daemon" + suffix);
+			print(i, prefix + nickname + ":-" + suffix);
+            break;
+        }
+        case RPL_MOTDSTART:{
+			print(i, prefix + nickname + ":- mircd Message of the day -" + suffix);
+            break;
+        }
+        case RPL_ENDOFMOTD:{
+			print(i, prefix + nickname + ":End of /MOTD command" + suffix);
+            break;
+        }
+        case RPL_USERSSTART:{
+			print(i, prefix + nickname + ":UserID   Terminal  Host" + suffix);
+            break;
+        }
+        case RPL_USERS:{
+			char str[50] = {};
+			sprintf(str, ":%-8s %-9s %-8s", args[0].c_str(), "-", args[1].c_str());
+			print(i, prefix + nickname + string(str) + suffix);
+            break;
+        }
+        case RPL_ENDOFUSERS:{
+			print(i, prefix + nickname + ":End of users" + suffix);
+            break;
+        }
+        case ERR_NOSUCHNICK:{
+			print(i, prefix + nickname + args[0] + " :No such nick/channel" + suffix);
+            break;
+        }
+        case ERR_NOSUCHCHANNEL:{
+			print(i, prefix + nickname + args[0] + " :No such channel" + suffix);
+            break;
+        }
+        case ERR_NORECIPIENT:{
+			print(i, prefix + nickname + ":No recipient given (" + args[0] + ")" + suffix);
+            break;
+        }
+        case ERR_NOTEXTTOSEND:{
+			print(i, prefix + nickname + ":No text to send" + suffix);
+            break;
+        }
+        case ERR_UNKNOWNCOMMAND:{
+			print(i, prefix + nickname + args[0] + " :Unknown command" + suffix);
+            break;
+        }
+        case ERR_NONICKNAMEGIVEN:{
+			print(i, prefix + ":No nickname given" + suffix);
+            break;
+        }
+        case ERR_NICKCOLLISION:{
+			print(i, prefix + args[0] + " :Nickname collision KILL" + suffix);
+            break;
+        }
+        case ERR_NOTONCHANNEL:{
+			print(i, prefix + nickname + args[0] + " :You're not on that channel" + suffix);
+            break;
+        }
+        case ERR_NEEDMOREPARAMS:{
+			print(i, prefix + nickname + args[0] + " :Not enough parameters" + suffix);
+            break;
+        }
+        case ERR_NOTREGISTERED:{
+			print(i, prefix + ":You have not registered" + suffix);
+            break;
+        }
+        case ERR_NOORIGIN:{
+			print(i, prefix + nickname + ":No origin specified" + suffix);
+            break;
+        }
+        case RPL_WELCOME:{
+			print(i, prefix + nickname + ":Welcome to the minimized IRC daemon!" + suffix);
+            break;
+        }
+        case RPL_LUSERCLIENT:{
+			print(i, prefix + nickname + ":There are " + to_string(numUsers) + " users and 0 invisible on 1 servers" + suffix);
+            break;
+        }
+        case RPL_NOUSERS:{
+			print(i, prefix + nickname + ":Nobody logged in" + suffix);
+            break;
+        }
+	}
 }
 
 void excute(int i, vector<string>& cmd){
 	if(cmd[0] == "NICK"){
-		response(i, ERR_NONICKNAMEGIVEN);
-		//response(i, ERR_ERRONEUSNICKNAME);
-		//response(i, ERR_NICKNAMEINUSE);
-		response(i, ERR_NICKCOLLISION);
+		if(cmd.size() < 2){
+			response(i, ERR_NONICKNAMEGIVEN, {});
+		}else if(userConnection.find(cmd[1]) != userConnection.end()){
+			response(i, ERR_NICKCOLLISION, {cmd[1]});
+		}else{
+			usersData[i].nickname = cmd[1];
+			usersData[i].nick = true;
+		}
 	}else if(cmd[0] == "USER"){
-		response(i, ERR_NEEDMOREPARAMS);
-		//response(i, ERR_ALREADYREGISTRED);
-	}
-	if(true){
-		response(i, ERR_NOTREGISTERED);
-	}
-	if(cmd[0] == "PING"){
-		//response(i, ERR_NOORIGIN);
-		//response(i, ERR_NOSUCHSERVER);
+		if(cmd.size() < 5){
+			response(i, ERR_NEEDMOREPARAMS, {"USER"});
+		}else{
+			usersData[i].username = cmd[1];
+			usersData[i].hostname = cmd[2];
+			usersData[i].servername = cmd[3];
+			string realname = cmd[4];
+			for(int index = 5; index < cmd.size(); index++){
+				realname += " " + cmd[index];
+			}
+			usersData[i].realname = realname.substr(1);
+			usersData[i].user = true;
+		}
+	}else if(!usersData[i].registed){
+		response(i, ERR_NOTREGISTERED, {});
+		return;
+	}else if(cmd[0] == "PING"){
+		if(cmd.size() < 2){
+			response(i, ERR_NOORIGIN, {});
+		}else{
+			print(i, "PONG :" + cmd[1] + "\r\n");
+		}
 	}else if(cmd[0] == "LIST"){
-		//response(i, ERR_NOSUCHSERVER);
-		response(i, RPL_LISTSTART);
-        response(i, RPL_LIST);
-		response(i, RPL_LISTEND);
+		response(i, RPL_LISTSTART, {});
+		if(cmd.size() < 2){
+			for(auto channel : channelData){
+				response(i, RPL_LIST, {channel.f});
+			}
+		}else{
+			response(i, RPL_LIST, {cmd[1]});
+		}
+		response(i, RPL_LISTEND, {});
 	}else if(cmd[0] == "JOIN"){
-		response(i, ERR_NEEDMOREPARAMS);
-		//response(i, ERR_BANNEDFROMCHAN);
-		//response(i, ERR_INVITEONLYCHAN);
-		//response(i, ERR_BADCHANNELKEY);
-		//response(i, ERR_CHANNELISFULL);
-		//response(i, ERR_BADCHANMASK);
-		response(i, ERR_NOSUCHCHANNEL);
-		//response(i, ERR_TOOMANYCHANNELS);
-		response(i, RPL_TOPIC);
+		if(cmd.size() < 2){
+			response(i, ERR_NEEDMOREPARAMS, {"JOIN"});
+		}else if(cmd[1][0] != '#'){
+			response(i, ERR_NOSUCHCHANNEL, {cmd[1]});
+		}else{
+			channelData[cmd[1]].users.emplace(usersData[i].nickname);
+			print(i, ":" + usersData[i].nickname + " " + cmd[0] + " :" + cmd[1] + "\r\n");
+			if(channelData[cmd[1]].topic == ""){
+				response(i, RPL_NOTOPIC, {cmd[1]});
+			}else{
+				response(i, RPL_TOPIC, {cmd[1], channelData[cmd[1]].topic});
+			}
+			response(i, RPL_NAMREPLY, {cmd[1]});
+			response(i, RPL_ENDOFNAMES, {cmd[1]});
+		}
 	}else if(cmd[0] == "TOPIC"){
-		response(i, ERR_NEEDMOREPARAMS);
-		response(i, ERR_NOTONCHANNEL);
-		response(i, RPL_NOTOPIC);
-		response(i, RPL_TOPIC);
-		//response(i, ERR_CHANOPRIVSNEEDED);
+		if(cmd.size() < 2){
+			response(i, ERR_NEEDMOREPARAMS, {"TOPIC"});
+		}else if(channelData[cmd[1]].users.find(usersData[i].nickname) == channelData[cmd[1]].users.end()){
+			response(i, ERR_NOTONCHANNEL, {cmd[1]});
+		}else if(cmd.size() > 2){
+			channelData[cmd[1]].topic = cmd[2].substr(1);
+			response(i, RPL_TOPIC, {cmd[1], channelData[cmd[1]].topic});
+		}else if(channelData[cmd[1]].topic == ""){
+			response(i, RPL_NOTOPIC, {cmd[1]});
+		}else{
+			response(i, RPL_TOPIC, {cmd[1], channelData[cmd[1]].topic});
+		}
 	}else if(cmd[0] == "NAMES"){
-		response(i, RPL_NAMREPLY);
-		response(i, RPL_ENDOFNAMES);
+		if(cmd.size() < 2){
+			for(auto channel : channelData){
+				response(i, RPL_NAMREPLY, {channel.f});
+				response(i, RPL_ENDOFNAMES, {channel.f});
+			}
+		}else{
+			response(i, RPL_NAMREPLY, {cmd[1]});
+			response(i, RPL_ENDOFNAMES, {cmd[1]});
+		}
 	}else if(cmd[0] == "PART"){
-		response(i, ERR_NEEDMOREPARAMS);
-		response(i, ERR_NOSUCHCHANNEL);
-        response(i, ERR_NOTONCHANNEL);
+		if(cmd.size() < 2){
+			response(i, ERR_NEEDMOREPARAMS, {"PART"});
+		}else if(channelData.find(cmd[1]) == channelData.end()){
+			response(i, ERR_NOSUCHCHANNEL, {cmd[1]});
+		}else if(channelData[cmd[1]].users.find(usersData[i].nickname) == channelData[cmd[1]].users.end()){
+			response(i, ERR_NOTONCHANNEL, {cmd[1]});
+		}else{
+			channelData[cmd[1]].users.erase(usersData[i].nickname);
+			print(i, ":" + usersData[i].nickname + " " + cmd[0] + " :" + cmd[1] + "\r\n");
+		}
 	}else if(cmd[0] == "USERS"){
-		//response(i, ERR_NOSUCHSERVER);
-		response(i, RPL_USERSSTART);
-		response(i, RPL_USERS);
-		//response(i, RPL_NOUSERS);
-		response(i, RPL_ENDOFUSERS);
-		//response(i, ERR_USERSDISABLED);
+		response(i, RPL_USERSSTART, {});
+		if(userConnection.size() == 0){
+			response(i, RPL_NOUSERS, {});
+		}else{
+			for(auto user : userConnection){
+				response(i, RPL_USERS, {user.f, string(usersData[user.s].ip4)});
+			}
+		}
+		response(i, RPL_ENDOFUSERS, {});
 	}else if(cmd[0] == "PRIVMSG"){
-		response(i, ERR_NORECIPIENT);
-		response(i, ERR_NOTEXTTOSEND);
-		//response(i, ERR_CANNOTSENDTOCHAN);
-		//response(i, ERR_NOTOPLEVEL);
-		//response(i, ERR_WILDTOPLEVEL);
-		//response(i, ERR_TOOMANYTARGETS);
-		response(i, ERR_NOSUCHNICK);
-		//response(i, RPL_AWAY);
-	}else if(cmd[0] == "QUIT"){
-		//none
+		if(cmd.size() < 2){
+			response(i, ERR_NORECIPIENT, {"PRIVMSG"});
+		}else if(cmd.size() < 3){
+			response(i, ERR_NOTEXTTOSEND, {});
+		}else if(channelData.find(cmd[1]) == channelData.end()){
+			response(i, ERR_NOSUCHNICK, {cmd[1]});
+		}else{
+			for(auto user : channelData[cmd[1]].users){
+				int j = userConnection[user];
+				string msg = cmd[2];
+				for(int index = 3; index < cmd.size(); index++){
+					msg += " " + cmd[index];
+				}
+				print(j, ":" + usersData[i].nickname + " PRIVMSG " + cmd[1] + " " + msg + "\r\n");
+			}
+		}
 	}else{
-		
+		response(i, ERR_UNKNOWNCOMMAND, {cmd[0]});
+	}
+	if(!usersData[i].registed){
+		if(usersData[i].nick && usersData[i].user){
+			response(i, RPL_WELCOME, {});
+			response(i, RPL_LUSERCLIENT, {});
+			response(i, RPL_MOTDSTART, {});
+			response(i, RPL_MOTD, {});
+			response(i, RPL_ENDOFMOTD, {});
+			usersData[i].registed = true;
+			userConnection[usersData[i].nickname] = i;
+		}
 	}
 }
 
@@ -220,6 +413,7 @@ int main(int argc, char**argv){
 					FD_CLR(sockfd, &allset);
 					client[i] = -1;
 					//QUIT
+					userConnection.erase(usersData[i].nickname);
 					usersData.erase(i);
 					numUsers--;
 				}else{
@@ -235,6 +429,17 @@ int main(int argc, char**argv){
 						splitArgument(cmd, usersData[i].cmd);
 						usersData[i].cmd.clear();
 						if(cmd.size() <= 0) continue;
+						//IFQUIT
+						if(cmd[0] == "QUIT"){
+							close(sockfd);
+							FD_CLR(sockfd, &allset);
+							client[i] = -1;
+							//QUIT
+							userConnection.erase(usersData[i].nickname);
+							usersData.erase(i);
+							numUsers--;
+							break;
+						}
 						//EXCUTE
 						excute(i, cmd);
 					}
