@@ -86,8 +86,75 @@ void broadcast(int i, int code, string& src){
 	}
 }
 
-void excute(int i, vector<string>& cmd){
+void response(int i, int code){
 	
+}
+
+void excute(int i, vector<string>& cmd){
+	if(cmd[0] == "NICK"){
+		response(i, ERR_NONICKNAMEGIVEN);
+		//response(i, ERR_ERRONEUSNICKNAME);
+		//response(i, ERR_NICKNAMEINUSE);
+		response(i, ERR_NICKCOLLISION);
+	}else if(cmd[0] == "USER"){
+		response(i, ERR_NEEDMOREPARAMS);
+		//response(i, ERR_ALREADYREGISTRED);
+	}
+	if(true){
+		response(i, ERR_NOTREGISTERED);
+	}
+	if(cmd[0] == "PING"){
+		//response(i, ERR_NOORIGIN);
+		//response(i, ERR_NOSUCHSERVER);
+	}else if(cmd[0] == "LIST"){
+		//response(i, ERR_NOSUCHSERVER);
+		response(i, RPL_LISTSTART);
+        response(i, RPL_LIST);
+		response(i, RPL_LISTEND);
+	}else if(cmd[0] == "JOIN"){
+		response(i, ERR_NEEDMOREPARAMS);
+		//response(i, ERR_BANNEDFROMCHAN);
+		//response(i, ERR_INVITEONLYCHAN);
+		//response(i, ERR_BADCHANNELKEY);
+		//response(i, ERR_CHANNELISFULL);
+		//response(i, ERR_BADCHANMASK);
+		response(i, ERR_NOSUCHCHANNEL);
+		//response(i, ERR_TOOMANYCHANNELS);
+		response(i, RPL_TOPIC);
+	}else if(cmd[0] == "TOPIC"){
+		response(i, ERR_NEEDMOREPARAMS);
+		response(i, ERR_NOTONCHANNEL);
+		response(i, RPL_NOTOPIC);
+		response(i, RPL_TOPIC);
+		//response(i, ERR_CHANOPRIVSNEEDED);
+	}else if(cmd[0] == "NAMES"){
+		response(i, RPL_NAMREPLY);
+		response(i, RPL_ENDOFNAMES);
+	}else if(cmd[0] == "PART"){
+		response(i, ERR_NEEDMOREPARAMS);
+		response(i, ERR_NOSUCHCHANNEL);
+        response(i, ERR_NOTONCHANNEL);
+	}else if(cmd[0] == "USERS"){
+		//response(i, ERR_NOSUCHSERVER);
+		response(i, RPL_USERSSTART);
+		response(i, RPL_USERS);
+		//response(i, RPL_NOUSERS);
+		response(i, RPL_ENDOFUSERS);
+		//response(i, ERR_USERSDISABLED);
+	}else if(cmd[0] == "PRIVMSG"){
+		response(i, ERR_NORECIPIENT);
+		response(i, ERR_NOTEXTTOSEND);
+		//response(i, ERR_CANNOTSENDTOCHAN);
+		//response(i, ERR_NOTOPLEVEL);
+		//response(i, ERR_WILDTOPLEVEL);
+		//response(i, ERR_TOOMANYTARGETS);
+		response(i, ERR_NOSUCHNICK);
+		//response(i, RPL_AWAY);
+	}else if(cmd[0] == "QUIT"){
+		//none
+	}else{
+		
+	}
 }
 
 int main(int argc, char**argv){
