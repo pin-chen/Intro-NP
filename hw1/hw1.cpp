@@ -221,8 +221,12 @@ void excute(int i, vector<string>& cmd){
 		}else if(userConnection.find(cmd[1]) != userConnection.end()){
 			response(i, ERR_NICKCOLLISION, {cmd[1]});
 		}else{
+			if(usersData[i].nick)
+				for(auto j : userConnection)
+					print(j.s, ":" + usersData[i].nickname + " NICK " + cmd[1] + "\r\n");
 			usersData[i].nickname = cmd[1];
 			usersData[i].nick = true;
+			userConnection[usersData[i].nickname] = i;
 		}
 	}else if(cmd[0] == "USER"){
 		if(cmd.size() < 5){
@@ -264,7 +268,8 @@ void excute(int i, vector<string>& cmd){
 			response(i, ERR_NOSUCHCHANNEL, {cmd[1]});
 		}else{
 			channelData[cmd[1]].users.emplace(usersData[i].nickname);
-			print(i, ":" + usersData[i].nickname + " " + cmd[0] + " :" + cmd[1] + "\r\n");
+			for(auto user : channelData[cmd[1]].users)
+				print(userConnection[user], ":" + usersData[i].nickname + " " + cmd[0] + " :" + cmd[1] + "\r\n");
 			if(channelData[cmd[1]].topic == ""){
 				response(i, RPL_NOTOPIC, {cmd[1]});
 			}else{
@@ -279,7 +284,11 @@ void excute(int i, vector<string>& cmd){
 		}else if(channelData[cmd[1]].users.find(usersData[i].nickname) == channelData[cmd[1]].users.end()){
 			response(i, ERR_NOTONCHANNEL, {cmd[1]});
 		}else if(cmd.size() > 2){
-			channelData[cmd[1]].topic = cmd[2].substr(1);
+			string topic = cmd[2];
+			for(int index = 3; index < cmd.size(); index++){
+				topic += " " + cmd[index];
+			}
+			channelData[cmd[1]].topic = topic.substr(1);
 			response(i, RPL_TOPIC, {cmd[1], channelData[cmd[1]].topic});
 		}else if(channelData[cmd[1]].topic == ""){
 			response(i, RPL_NOTOPIC, {cmd[1]});
@@ -304,8 +313,9 @@ void excute(int i, vector<string>& cmd){
 		}else if(channelData[cmd[1]].users.find(usersData[i].nickname) == channelData[cmd[1]].users.end()){
 			response(i, ERR_NOTONCHANNEL, {cmd[1]});
 		}else{
+			for(auto user : channelData[cmd[1]].users)
+				print(userConnection[user], ":" + usersData[i].nickname + " " + cmd[0] + " :" + cmd[1] + "\r\n");
 			channelData[cmd[1]].users.erase(usersData[i].nickname);
-			print(i, ":" + usersData[i].nickname + " " + cmd[0] + " :" + cmd[1] + "\r\n");
 		}
 	}else if(cmd[0] == "USERS"){
 		response(i, RPL_USERSSTART, {});
@@ -326,12 +336,12 @@ void excute(int i, vector<string>& cmd){
 			response(i, ERR_NOSUCHNICK, {cmd[1]});
 		}else{
 			for(auto user : channelData[cmd[1]].users){
-				int j = userConnection[user];
+				if(userConnection[user] == i) continue;
 				string msg = cmd[2];
 				for(int index = 3; index < cmd.size(); index++){
 					msg += " " + cmd[index];
 				}
-				print(j, ":" + usersData[i].nickname + " PRIVMSG " + cmd[1] + " " + msg + "\r\n");
+				print(userConnection[user], ":" + usersData[i].nickname + " PRIVMSG " + cmd[1] + " " + msg + "\r\n");
 			}
 		}
 	}else{
@@ -345,7 +355,6 @@ void excute(int i, vector<string>& cmd){
 			response(i, RPL_MOTD, {});
 			response(i, RPL_ENDOFMOTD, {});
 			usersData[i].registed = true;
-			userConnection[usersData[i].nickname] = i;
 		}
 	}
 }
@@ -369,6 +378,12 @@ int main(int argc, char**argv){
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
     servaddr.sin_port = htons(port);
+	int opt;
+	int val, len = sizeof(val);
+	int e = setsockopt(listenfd, SOL_SOCKET, SO_REUSEADDR, &val, len);
+	if(e){
+		perror("sockopt");
+	}
     bind(listenfd, (SA*) &servaddr, sizeof(servaddr));
 	listen(listenfd, 1010);
 	
